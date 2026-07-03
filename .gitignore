@@ -1,0 +1,9 @@
+# local env files for testing the scripts (never commit real credentials)
+*.env
+.env
+.env.*
+!.env.example
+
+# local dumps / rclone scratch
+*.sql
+*.sql.gz
