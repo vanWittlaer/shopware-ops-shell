@@ -55,6 +55,11 @@ export RCLONE_CONFIG_BACKUP_REGION="${S3_BACKUP_REGION}"
 export RCLONE_CONFIG_BACKUP_ENDPOINT="${S3_BACKUP_DOMAIN}"
 export RCLONE_CONFIG_BACKUP_FORCE_PATH_STYLE="true"
 export RCLONE_CONFIG_BACKUP_ACL="private"
+# Bucket-scoped credentials (e.g. Hetzner Object Storage) lack s3:CreateBucket.
+# Without this, rclone's pre-upload bucket check issues CreateBucket and fails
+# with 403 AccessDenied even though the bucket already exists. Same reason
+# backup-s3.sh passes --s3-no-check-bucket to its sync.
+export RCLONE_CONFIG_BACKUP_NO_CHECK_BUCKET="true"
 
 # Build remote path: bucket/[path]/database
 if [[ -n "${S3_BACKUP_PATH}" ]]; then
