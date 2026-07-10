@@ -59,6 +59,7 @@ docker `env_file`, `-e` flags, …).
 | `S3_REGION` | ✓ | | Source region, e.g. `nbg1` |
 | `S3_DOMAIN` | ✓ | | Source endpoint |
 | `S3_BUCKET_PUBLIC` / `S3_BUCKET_PRIVATE` | ✓ | | Source media buckets |
+| `S3_SOURCE_PATH` | | `""` | In-bucket source prefix, e.g. `production`. Set when one bucket is shared across environments — only `<bucket>/<prefix>` is mirrored, not the whole bucket. |
 | `S3_BACKUP_RETAIN_DAYS` | | `30` | Days to keep soft-deleted files |
 | `S3_BACKUP_TRANSFERS` / `S3_BACKUP_CHECKERS` / `S3_BACKUP_TPSLIMIT` / `S3_BACKUP_UPLOAD_CONCURRENCY` | | `8` / `16` / `10` / `4` | rclone throughput tuning (lower if you see `503 SlowDown`) |
 

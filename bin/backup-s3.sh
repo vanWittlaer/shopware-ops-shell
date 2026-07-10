@@ -21,6 +21,10 @@ set -euo pipefail
 #   S3_DOMAIN                 - Source endpoint, e.g. "https://nbg1.your-objectstorage.com"
 #   S3_BUCKET_PUBLIC          - Source public bucket name
 #   S3_BUCKET_PRIVATE         - Source private bucket name
+#   S3_SOURCE_PATH            - Path prefix inside the source buckets (default: "").
+#                              Set this when a single bucket is shared across
+#                              environments (e.g. "production" / "staging"): only
+#                              <bucket>/<S3_SOURCE_PATH> is mirrored, not the whole bucket.
 #
 #   S3_BACKUP_ACCESS_KEY_ID     - Backup bucket credentials (can be same or different)
 #   S3_BACKUP_SECRET_ACCESS_KEY
@@ -36,6 +40,9 @@ set -euo pipefail
 S3_BACKUP_RETAIN_DAYS="${S3_BACKUP_RETAIN_DAYS:-30}"
 S3_BACKUP_PATH="${S3_BACKUP_PATH:-}"
 S3_BACKUP_PATH="${S3_BACKUP_PATH%/}"
+S3_SOURCE_PATH="${S3_SOURCE_PATH:-}"
+S3_SOURCE_PATH="${S3_SOURCE_PATH#/}"
+S3_SOURCE_PATH="${S3_SOURCE_PATH%/}"
 
 # Throughput tuning for the throttled Hetzner NBG cluster.
 # Hetzner has imposed temporary limits in NBG on upload speed AND the number of
@@ -104,10 +111,17 @@ sync_bucket() {
     local src_bucket="$1"
     local label="$2"
 
-    echo "=== Syncing ${label}: ${src_bucket} -> ${REMOTE_BASE}/${label} ==="
+    # Scope the source read to a sub-path when a bucket is shared across
+    # environments; otherwise mirror the whole bucket.
+    local src_path="${src_bucket}"
+    if [[ -n "${S3_SOURCE_PATH}" ]]; then
+        src_path="${src_bucket}/${S3_SOURCE_PATH}"
+    fi
+
+    echo "=== Syncing ${label}: ${src_path} -> ${REMOTE_BASE}/${label} ==="
 
     rclone sync \
-        "${SOURCE_REMOTE}:${src_bucket}" \
+        "${SOURCE_REMOTE}:${src_path}" \
         "${BACKUP_REMOTE}:${REMOTE_BASE}/${label}/current" \
         --backup-dir "${BACKUP_REMOTE}:${REMOTE_BASE}/${label}/_soft-deleted/${DATE}" \
         --transfers "${S3_BACKUP_TRANSFERS}" \
@@ -153,7 +167,7 @@ cleanup_soft_deletes() {
 }
 
 echo "Starting S3 backup at ${DATE}"
-echo "Source: ${S3_DOMAIN} (${S3_REGION})"
+echo "Source: ${S3_DOMAIN} (${S3_REGION})${S3_SOURCE_PATH:+ path=${S3_SOURCE_PATH}}"
 echo "Backup: ${S3_BACKUP_DOMAIN} (${S3_BACKUP_REGION}) -> ${REMOTE_BASE}"
 echo ""
 
