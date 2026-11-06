@@ -107,6 +107,24 @@ export RCLONE_CONFIG_BACKUP_ENDPOINT="${S3_BACKUP_DOMAIN}"
 export RCLONE_CONFIG_BACKUP_FORCE_PATH_STYLE="true"
 export RCLONE_CONFIG_BACKUP_ACL="private"
 
+# Folder-marker objects in the source (keys ending in "/", created by some S3 UIs or
+# clients) are listed by rclone as files with an empty name; reading them fails with a
+# nameless "GetObject ... NoSuchKey" and aborts the sync. Only called after a failed
+# sync, so the extra listing costs nothing on healthy runs.
+report_source_markers() {
+    local src_path="$1"
+    local markers
+    markers=$(rclone lsf "${SOURCE_REMOTE}:${src_path}/" -R --files-only --fast-list --format sp 2>/dev/null \
+        | awk -F';' '$2 == "" || $2 ~ /\/$/' || true)
+
+    if [[ -n "${markers}" ]]; then
+        echo "ERROR: folder-marker objects found in ${src_path} (size;path, empty path = '${src_path}/' itself):" >&2
+        echo "${markers}" | sed 's/^/  /' >&2
+        echo "  Delete them (exact keys, ending in '/') with an S3 client, e.g.:" >&2
+        echo "  aws s3api delete-object --endpoint-url \"\$S3_DOMAIN\" --bucket <bucket> --key \"<prefix>/\"" >&2
+    fi
+}
+
 sync_bucket() {
     local src_bucket="$1"
     local label="$2"
@@ -120,7 +138,7 @@ sync_bucket() {
 
     echo "=== Syncing ${label}: ${src_path} -> ${REMOTE_BASE}/${label} ==="
 
-    rclone sync \
+    if ! rclone sync \
         "${SOURCE_REMOTE}:${src_path}" \
         "${BACKUP_REMOTE}:${REMOTE_BASE}/${label}/current" \
         --backup-dir "${BACKUP_REMOTE}:${REMOTE_BASE}/${label}/_soft-deleted/${DATE}" \
@@ -141,7 +159,10 @@ sync_bucket() {
         --fast-list \
         --stats-one-line \
         --stats 30s \
-        --log-level INFO
+        --log-level INFO; then
+        report_source_markers "${src_path}"
+        return 1
+    fi
 
     echo "=== Done syncing ${label} ==="
 }
