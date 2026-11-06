@@ -120,8 +120,11 @@ report_source_markers() {
     if [[ -n "${markers}" ]]; then
         echo "ERROR: folder-marker objects found in ${src_path} (size;path, empty path = '${src_path}/' itself):" >&2
         echo "${markers}" | sed 's/^/  /' >&2
-        echo "  Delete them (exact keys, ending in '/') with an S3 client, e.g.:" >&2
-        echo "  aws s3api delete-object --endpoint-url \"\$S3_DOMAIN\" --bucket <bucket> --key \"<prefix>/\"" >&2
+        echo "  Delete each one by exact key (ending in '/'); this removes only the marker object:" >&2
+        local path
+        while IFS=';' read -r _ path; do
+            echo "  curl -s -o /dev/null -w '%{http_code}\\n' -X DELETE --aws-sigv4 \"aws:amz:\${S3_REGION}:s3\" --user \"\${S3_ACCESS_KEY_ID}:\${S3_SECRET_ACCESS_KEY}\" \"\${S3_DOMAIN}/${src_path}/${path}\"" >&2
+        done <<< "${markers}"
     fi
 }
 
