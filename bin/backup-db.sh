@@ -84,7 +84,11 @@ rm -f "${LOCAL_TMP}"
 echo "Local temp file removed."
 
 # Prune old backups: list all .sql.gz files, sorted oldest first, remove excess
-REMOTE_FILES=$(rclone lsf "backup:${REMOTE_DIR}/" --include "*.sql.gz" | sort)
+# The upload above already succeeded, so a listing failure here must not fail the backup.
+if ! REMOTE_FILES=$(rclone lsf "backup:${REMOTE_DIR}/" --include "*.sql.gz" | sort); then
+    echo "WARNING: could not list backups in s3://${REMOTE_DIR}/, skipping prune." >&2
+    REMOTE_FILES=""
+fi
 BACKUP_COUNT=$(echo "${REMOTE_FILES}" | grep -c . || true)
 
 if [ "${BACKUP_COUNT}" -gt "${DB_BACKUPS_TO_KEEP}" ]; then
